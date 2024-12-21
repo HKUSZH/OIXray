@@ -98,7 +98,7 @@ def logisticsStackingForMany(listPred, listGT_Meta, thisfold):
 
             predicted = stacker.predict(valMatrix_test)
 
-            modelOut = 'logistic_regression_model.'+BONES[class_id]+'.'+thisfold+'.pkl'
+            modelOut = 'logistic_regression_model.'+BONES[class_id]+'.'+thisfold+'part.'+str(part)+'.pkl'
             joblib.dump(stacker, modelOut)
 
             row_sumsTr = np.sum(modelMatrix_train, axis=1)
@@ -169,3 +169,38 @@ def logisticsStackingForMany(listPred, listGT_Meta, thisfold):
             logging.info("\n%s", pretty_table_tst)
 
 
+def predict_with_stacker(model_path, listPred, class_id=1):
+    """
+    Load a trained stacking model and make predictions based on ensemble predictions
+
+    Args:
+        model_path (str): Path to the saved model pickle file
+        listPred (list): List of 6 model predictions [model1_pred, model2_pred, ...]
+                        where each prediction contains binary values (0,1)
+                        from PSPNet, UNet, KNet, FastSCNN, DeepLabV3plus, Segformer
+        class_id (int): Class ID to predict (1 for Femur, 2 for Tibia)
+
+    Returns:
+        predicted: Binary prediction mask (0 or 1)
+    """
+    # Load the trained model
+    print(f"loading from {model_path}")
+    stacker = joblib.load(model_path)
+
+    # Stack predictions from different models
+    X_meta = []
+    for i in range(6):  # Loop over the 6 models
+        predictions = listPred[i]  # Contains binary values 0,1
+        xi = predictions.flatten()
+        X_meta.append(xi)
+
+    # Create input matrix
+    valMatrix = np.stack(X_meta, axis=1)
+
+    # Make prediction
+    predicted = stacker.predict(valMatrix)
+
+    # Reshape back to original dimensions
+    predicted = predicted.reshape(listPred[0].shape)
+
+    return predicted
